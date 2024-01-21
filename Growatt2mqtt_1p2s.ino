@@ -71,27 +71,17 @@ void mqttPublish(String psTopic, JsonDocument poDoc) {
 
 void sendModbusError(uint8_t result) {
   JsonDocument status;
-  String message;
-  if (result == growatt.ku8MBIllegalFunction)
-    status["error"] = "Illegal function";
-  else if (result == growatt.ku8MBIllegalDataAddress)
-    status["error"] = "Illegal data address";
-  else if (result == growatt.ku8MBIllegalDataValue)
-    status["error"] = "Illegal data value";
-  else if (result == growatt.ku8MBSlaveDeviceFailure)
-    status["error"] = "Slave device failure";
-  else if (result == growatt.ku8MBInvalidSlaveID)
-    status["error"] = "Invalid slave ID";
-  else if (result == growatt.ku8MBInvalidFunction)
-    status["error"] = "Invalid function";
-  else if (result == growatt.ku8MBResponseTimedOut)
-    status["error"] = "Response timed out";
-  else if (result == growatt.ku8MBInvalidCRC)
-    status["error"] = "Invalid CRC";
-  else
-    status["error"] = result;
+  if (result == growatt.ku8MBIllegalFunction)          status["error"] = "Illegal function";
+  else if (result == growatt.ku8MBIllegalDataAddress)  status["error"] = "Illegal data address";
+  else if (result == growatt.ku8MBIllegalDataValue)    status["error"] = "Illegal data value";
+  else if (result == growatt.ku8MBSlaveDeviceFailure)  status["error"] = "Slave device failure";
+  else if (result == growatt.ku8MBInvalidSlaveID)      status["error"] = "Invalid slave ID";
+  else if (result == growatt.ku8MBInvalidFunction)     status["error"] = "Invalid function";
+  else if (result == growatt.ku8MBResponseTimedOut)    status["error"] = "Response timed out";
+  else if (result == growatt.ku8MBInvalidCRC)          status["error"] = "Invalid CRC";
+  else status["error"] = result;
 
-    status["date-time"] = ntp.formattedTime("%F %T");
+  status["date-time"] = ntp.formattedTime("%F %T");
 
   mqttPublish("modbusstatus", status);
   delay(5);
@@ -251,7 +241,7 @@ void ReadInputRegisters() {
     ledoff = true;
 
     Serial.print(F("Error: "));
-    sendModbusError(result);
+    sendMod busError(result);
   }
   digitalWrite(STATUS_LED, 1);
 }
