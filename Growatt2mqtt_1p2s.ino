@@ -241,7 +241,7 @@ void ReadInputRegisters() {
     ledoff = true;
 
     Serial.print(F("Error: "));
-    sendMod busError(result);
+    sendModbusError(result);
   }
   digitalWrite(STATUS_LED, 1);
 }
@@ -542,7 +542,7 @@ void setupOTA() {
   ArduinoOTA.setHostname(value);
 
   // No authentication by default
-  //ArduinoOTA.setPassword((const char*)"123");
+  ArduinoOTA.setPassword((const char*)"123");
 
   ArduinoOTA.onStart([]() {
     Serial.println("Start");

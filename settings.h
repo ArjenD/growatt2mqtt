@@ -25,7 +25,7 @@
 // Also check NTP.h for some parameters as well
 const char* ssid = "TargetCNC";           // Wifi SSID
 const char* password = "aaabbbccc";    // Wifi password
-const char* mqtt_server = "192.168.1.9";     // MQTT server
+const char* mqtt_server = "mqtt.lan";     // MQTT server
 const char* mqtt_user = "hass_mqtt_user";             // MQTT userid
 const char* mqtt_password = "bbb5b979dcfbe94e24aeaac2d7e7fa6c";         // MQTT password
 const char* clientID = "growatt";                // MQTT client ID
