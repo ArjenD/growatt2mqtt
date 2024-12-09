@@ -26,8 +26,8 @@
 const char* ssid = "TargetCNC";           // Wifi SSID
 const char* password = "aaabbbccc";    // Wifi password
 const char* mqtt_server = "mqtt.lan";     // MQTT server
-const char* mqtt_user = "hass_mqtt_user";             // MQTT userid
-const char* mqtt_password = "bbb5b979dcfbe94e24aeaac2d7e7fa6c";         // MQTT password
+const char* mqtt_user = "admin";             // MQTT userid
+const char* mqtt_password = "Zweosplein1";         // MQTT password
 const char* clientID = "growatt";                // MQTT client ID
 const char* topicRoot = "growatt";             // MQTT root topic for the device, keep / at the end
 

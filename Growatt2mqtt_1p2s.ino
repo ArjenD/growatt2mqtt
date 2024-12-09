@@ -477,7 +477,8 @@ void setupMqtt() {
 
 
 
-void createDiscoveryTopic(String psSensor, String psUOM, String psDeviceClass) {
+void createDiscoveryTopic( String psSensor, String psUOM, String psDeviceClass, String psStateClass )
+{
   String discoveryTopic = "homeassistant/sensor/growatt/" + psSensor + "/config";
 
   JsonDocument doc;
@@ -487,6 +488,11 @@ void createDiscoveryTopic(String psSensor, String psUOM, String psDeviceClass) {
     doc["unit_of_meas"] = psUOM;
   if (!psDeviceClass.isEmpty())
     doc["dev_cla"] = psDeviceClass;
+   if( ! psStateClass.isEmpty() )   
+      doc[ "stat_cla"] = psStateClass;
+   else 
+      doc[ "stat_cla"] = "measurement";
+   
 
   doc["val_tpl"] = "{{ value_json." + psSensor + "|default(0) }}";
   doc["stat_t"] = "growatt/data";
@@ -504,30 +510,30 @@ void createDiscoveryTopic(String psSensor, String psUOM, String psDeviceClass) {
 }
 
 void createDiscoveryTopic(String psSensor) {
-  createDiscoveryTopic(psSensor, "", "");
+  createDiscoveryTopic(psSensor, "", "", "");
 }
 
 
 void setupDiscovery() {
   createDiscoveryTopic("status");
-  createDiscoveryTopic("solarpower", "W", "power");
-  createDiscoveryTopic("pv1voltage", "V", "voltage");
-  createDiscoveryTopic("pv1current", "A", "current");
-  createDiscoveryTopic("pv1power", "W", "power");
-  createDiscoveryTopic("pv2voltage", "V", "voltage");
-  createDiscoveryTopic("pv2current", "A", "current");
-  createDiscoveryTopic("pv2power", "W", "power");
+  createDiscoveryTopic( "solarpower", "W", "power", "measurement");
+  createDiscoveryTopic( "pv1voltage", "V", "voltage", "measurement");
+  createDiscoveryTopic( "pv1current", "A", "current", "measurement");
+  createDiscoveryTopic( "pv1power", "W", "power", "measurement");
+  createDiscoveryTopic( "pv2voltage", "V", "voltage", "measurement");
+  createDiscoveryTopic( "pv2current", "A", "current", "measurement");
+  createDiscoveryTopic( "pv2power", "W", "power", "measurement");
 
-  createDiscoveryTopic("outputpower", "W", "power");
-  createDiscoveryTopic("gridfrequency", "Hz", "frequency");
-  createDiscoveryTopic("gridvoltage", "V", "voltage");
-  createDiscoveryTopic("energytoday", "kWh", "energy");
-  createDiscoveryTopic("energytotal", "kWh", "energy");
-  createDiscoveryTopic("totalworktime");
-  createDiscoveryTopic("pv1energytoday", "kWh", "energy");
-  createDiscoveryTopic("pv1energytotal", "kWh", "energy");
-  createDiscoveryTopic("pv2energytoday", "kWh", "energy");
-  createDiscoveryTopic("pv2energytotal", "kWh", "energy");
+  createDiscoveryTopic( "outputpower", "W", "power", "measurement");
+  createDiscoveryTopic( "gridfrequency", "Hz", "frequency", "measurement");
+  createDiscoveryTopic( "gridvoltage", "V", "voltage", "measurement");
+  createDiscoveryTopic( "energytoday", "kWh", "energy", "total");
+  createDiscoveryTopic( "energytotal", "kWh", "energy", "total");
+  createDiscoveryTopic( "totalworktime", "s", "duration", "total" );
+  createDiscoveryTopic( "pv1energytoday", "kWh", "energy", "total");
+  createDiscoveryTopic( "pv1energytotal", "kWh", "energy", "total");
+  createDiscoveryTopic( "pv2energytoday", "kWh", "energy", "total");
+  createDiscoveryTopic( "pv2energytotal", "kWh", "energy", "total");
 }
 
 void setupOTA() {

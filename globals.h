@@ -21,5 +21,5 @@ int setcounter = 0;
 bool ledoff = false;
 int holdingregisters = 0;
 char newclientid[80];
-char buildversion[20]="20240115";
+char buildversion[20]="20241209";
 int overflow;
