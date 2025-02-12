@@ -37,35 +37,39 @@ NTP ntp(wifiUdp);
 
 ESP8266WebServer server(80);
 WiFiClient espClient;
-PubSubClient mqtt(mqtt_server, 1883, 0, espClient);
+PubSubClient mqtt( mqtt_server, 1883, 0, espClient );
 // SoftwareSerial modbus(MAX485_RX, MAX485_TX, false, 256); //RX, TX
-SoftwareSerial modbus(MAX485_RX, MAX485_TX, false);  //RX, TX
+SoftwareSerial modbus( MAX485_RX, MAX485_TX, false );  //RX, TX
 ModbusMaster growatt;
 CRGB leds[NUM_LEDS];
 
 JsonDocument inputRegisters;
 JsonDocument holdingRegisters;
 
-String convertToString(char* a) {
+String convertToString( char* a ) 
+{
   String s = a;
   return s;
 }
 
-void preTransmission() {
+void preTransmission() 
+{
   digitalWrite(MAX485_RE_NEG, 1);
   digitalWrite(MAX485_DE, 1);
 }
 
-void postTransmission() {
+void postTransmission() 
+{
   digitalWrite(MAX485_RE_NEG, 0);
   digitalWrite(MAX485_DE, 0);
 }
 
-void mqttPublish(String psTopic, JsonDocument poDoc) {
+void mqttPublish( String psTopic, JsonDocument poDoc )
+{
   char topic[80];
   char json[1024];
-  serializeJson(poDoc, json);
-  sprintf(topic, "%s/%s", topicRoot, psTopic.c_str());
+  serializeJson( poDoc, json );
+  sprintf(topic, "%s/%s/%s", topicRoot, msClientId, psTopic.c_str());
   mqtt.publish(topic, json, true);
 }
 
@@ -358,13 +362,9 @@ void reconnectMqtt() {
   // Loop until we're reconnected
   while (!mqtt.connected()) {
     Serial.print("Attempting MQTT connection...");
-    byte mac[6];  // the MAC address of your Wifi shield
-    WiFi.macAddress(mac);
-    sprintf(newclientid, "%s-%02x%02x%02x", clientID, mac[2], mac[1], mac[0]);
-    Serial.print(F("Client ID: "));
-    Serial.println(newclientid);
+    
     // Attempt to connect
-    if (mqtt.connect(newclientid, mqtt_user, mqtt_password)) {
+    if (mqtt.connect( msClientId, mqtt_user, mqtt_password)) {
       Serial.println(F("connected"));
       // ... and resubscribe
       char topic[80];
@@ -479,7 +479,9 @@ void setupMqtt() {
 
 void createDiscoveryTopic( String psSensor, String psUOM, String psDeviceClass, String psStateClass )
 {
-  String discoveryTopic = "homeassistant/sensor/growatt/" + psSensor + "/config";
+  char discoveryTopic[100];
+
+  sprintf( discoveryTopic, "homeassistant/sensor/growatt-%s/%s/config", msClientId, psSensor.c_str() );
 
   JsonDocument doc;
   char buffer[512];
@@ -493,11 +495,20 @@ void createDiscoveryTopic( String psSensor, String psUOM, String psDeviceClass, 
    else 
       doc[ "stat_cla"] = "measurement";
    
+  char val_tpl[100];
+  char stat_t[100];
+  char uniq_id[100];
 
-  doc["val_tpl"] = "{{ value_json." + psSensor + "|default(0) }}";
-  doc["stat_t"] = "growatt/data";
+  sprintf( val_tpl, "{{ value_json.%s|default(0) }}", psSensor.c_str() );
+  sprintf( stat_t, "growatt/%s/data", msClientId );
+  sprintf( uniq_id, "growatt-%s-%s", msClientId, psSensor.c_str() );
+  
+  doc["val_tpl"] = val_tpl;
+  doc["stat_t"] = stat_t;
+
   doc["name"] = psSensor;
-  doc["uniq_id"] = "growatt_" + psSensor;
+  doc["uniq_id"] = uniq_id;
+
   doc["device"]["name"] = "growatt";
   doc["device"]["mdl"] = "XE-3600";
   doc["device"]["mf"] = "Growatt";
@@ -506,7 +517,7 @@ void createDiscoveryTopic( String psSensor, String psUOM, String psDeviceClass, 
   doc["ret"] = true;
 
   serializeJson(doc, buffer);
-  mqtt.publish(discoveryTopic.c_str(), buffer, true);
+  mqtt.publish( discoveryTopic, buffer, true);
 }
 
 void createDiscoveryTopic(String psSensor) {
@@ -576,6 +587,12 @@ void setup() {
   // Initialize some variables
   uptime = 0;
   seconds = 0;
+
+  byte mac[6];  // the MAC address of your Wifi shield
+  WiFi.macAddress( mac );
+  sprintf( msClientId, "%02x%02x%02x%02x%02x%02x", mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
+  
+
 
   setupSerial();
 
@@ -656,8 +673,8 @@ void loop() {
     if (mqtt_server != "") {
       char topic[80];
       char value[300];
-      sprintf(value, "{\"rssi\": %d, \"uptime\": %lu, \"ssid\": \"%s\", \"ip\": \"%d.%d.%d.%d\", \"clientid\":\"%s\", \"version\":\"%s\"}", WiFi.RSSI(), uptime, WiFi.SSID().c_str(), WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3], newclientid, buildversion);
-      sprintf(topic, "%s/%s", topicRoot, "status");
+      sprintf(value, "{\"rssi\": %d, \"uptime\": %lu, \"ssid\": \"%s\", \"ip\": \"%d.%d.%d.%d\", \"clientid\":\"%s\", \"version\":\"%s\"}", WiFi.RSSI(), uptime, WiFi.SSID().c_str(), WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3], msClientId, buildversion);
+      sprintf(topic, "%s/%s/%s", topicRoot, msClientId, "status");
       mqtt.publish(topic, value, true);
       Serial.println(F("MQTT status sent"));
     }
