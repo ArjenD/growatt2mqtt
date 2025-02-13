@@ -15,19 +15,30 @@
 
 
 #include <SoftwareSerial.h>    // Leave the main serial line (USB) for debugging and flashing
-#include <ModbusMaster.h>      // Modbus master library for ESP8266
-#include <ESP8266WiFi.h>       // Wifi connection
-#include <ESP8266WebServer.h>  // Web server for general HTTP response
-#include <PubSubClient.h>      // MQTT support
-#include <ArduinoOTA.h>
-#include <FastLED.h>
+#include <ModbusMaster.h>      // Modbus master library for ESP8266 by Doc Walker
+
+#if defined(ESP8266)
+  #pragma message "ESP8266 stuff happening!"
+  #include <ESP8266WiFi.h>       // Wifi connection
+  #include <ESP8266WebServer.h>  // Web server for general HTTP Response
+#elif defined(ESP32)
+  #pragma message "ESP32 stuff happening!"
+  #include <WiFi.h>       // Wifi connection
+  #include <WebServer.h>  // Web server for general HTTP response
+#else
+  #error "This ain't a ESP8266 or ESP32, dumbo!"
+#endif
+
+#include <PubSubClient.h>      // MQTT support by Nick O'Leary
+#include <ArduinoOTA.h>   
+#include <FastLED.h>          // by Daniel Garcia
 
 #include "globals.h"
 #include "settings.h"
 
-#include <ArduinoJson.h>
+#include <ArduinoJson.h>      // Benoit Blanchon
 #include <WiFiUdp.h>
-#include <NTP.h>               //https://github.com/sstaub/NTP
+#include <NTP.h>               //https://github.com/sstaub/NTP   by stefan staub
 
 // Define NTP Client to get time
 WiFiUDP wifiUdp;
@@ -358,13 +369,14 @@ void ReadHoldingRegisters() {
 
 // MQTT reconnect logic
 void reconnectMqtt() {
+  Serial.println( "reconnectMqtt" );
   //String mytopic;
   // Loop until we're reconnected
   while (!mqtt.connected()) {
     Serial.print("Attempting MQTT connection...");
     
     // Attempt to connect
-    if (mqtt.connect( msClientId, mqtt_user, mqtt_password)) {
+    if (mqtt.connect( "growatt", mqtt_user, mqtt_password)) {
       Serial.println(F("connected"));
       // ... and resubscribe
       char topic[80];
@@ -384,11 +396,13 @@ void reconnectMqtt() {
 }
 
 void setupNtp() {
+  Serial.println( "setupNtp" );
   ntp.ruleDST("CEST", Last, Sun, Mar, 2, 120); // last sunday in march 2:00, timetone +120min (+1 GMT + 1h summertime offset)
   ntp.ruleSTD("CET", Last, Sun, Oct, 3, 60); // last sunday in october 3:00, timezone +60min (+1 GMT)
   ntp.begin();
 }
 void setupFastLed() {
+  Serial.println( "setupFastLed" );
   FastLED.addLeds<LED_TYPE, RGBLED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalSMD5050);
   FastLED.setBrightness(BRIGHTNESS);
   leds[0] = CRGB::Pink;
@@ -402,6 +416,7 @@ void setupSerial() {
 }
 
 void setup485() {
+  Serial.println( "setup485" );
   // Init outputs, RS485 in receive mode
   pinMode(MAX485_RE_NEG, OUTPUT);
   pinMode(MAX485_DE, OUTPUT);
@@ -413,8 +428,10 @@ void setup485() {
 }
 
 void setupWifi() {
+  Serial.println( "setupWifi" );
   // Connect to Wifi
-  Serial.print(F("Connecting to Wifi"));
+  Serial.print(F("Connecting to Wifi: " ) );
+  Serial.println( ssid );
   WiFi.mode(WIFI_STA);
 
 #ifdef FIXEDIP
@@ -427,13 +444,27 @@ void setupWifi() {
 
   int count = 0;
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED && count < 100) {
     delay(100);
     Serial.print(F("."));
     count++;
-    if (count > 100) {
-      // reboot the ESP if cannot connect to wifi within 10 seconds
-      ESP.restart();
+  }
+  Serial.println( "" );
+  Serial.print(F("Connecting to Wifi: " ) );
+  Serial.println( ssid_backup );
+
+  if ( WiFi.status() != WL_CONNECTED )
+  {
+    count = 0;
+    WiFi.begin(ssid_backup, password_backup);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(100);
+      Serial.print(F("."));
+      count++;
+      if (count > 100) {
+        // reboot the ESP if cannot connect to wifi within 10 seconds
+        ESP.restart();
+      }
     }
   }
 
@@ -446,6 +477,7 @@ void setupWifi() {
 }
 
 void setupGrowatt() {
+  Serial.println( "setupGrowatt" );
   // Set up the Modbus line
   growatt.begin(SLAVE_ID, modbus);
   // Callbacks allow us to configure the RS485 transceiver correctly
@@ -455,6 +487,7 @@ void setupGrowatt() {
 }
 
 void setupServer() {
+  Serial.println( "setupServer" );
   server.on("/", []() {  // Dummy page
     server.send(200, "text/plain", "Growatt Solar Inverter to MQTT Gateway");
   });
@@ -463,6 +496,7 @@ void setupServer() {
 }
 
 void setupMqtt() {
+  Serial.println( "setupMqtt" );
   // Set up the MQTT server connection
   if (strcmp(mqtt_server, "") != 0) {
     mqtt.setServer(mqtt_server, 1883);
@@ -498,10 +532,12 @@ void createDiscoveryTopic( String psSensor, String psUOM, String psDeviceClass, 
   char val_tpl[100];
   char stat_t[100];
   char uniq_id[100];
+  char device_id[100];
 
   sprintf( val_tpl, "{{ value_json.%s|default(0) }}", psSensor.c_str() );
   sprintf( stat_t, "growatt/%s/data", msClientId );
   sprintf( uniq_id, "growatt-%s-%s", msClientId, psSensor.c_str() );
+  sprintf( device_id, "growatt-%s", msClientId );
   
   doc["val_tpl"] = val_tpl;
   doc["stat_t"] = stat_t;
@@ -512,7 +548,7 @@ void createDiscoveryTopic( String psSensor, String psUOM, String psDeviceClass, 
   doc["device"]["name"] = "growatt";
   doc["device"]["mdl"] = "XE-3600";
   doc["device"]["mf"] = "Growatt";
-  doc["device"]["ids"][0] = "growatt";
+  doc["device"]["ids"][0] = device_id;
   doc["frc_upd"] = true;
   doc["ret"] = true;
 
@@ -548,6 +584,7 @@ void setupDiscovery() {
 }
 
 void setupOTA() {
+  Serial.println( "setupOTA" );
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
 
@@ -562,10 +599,10 @@ void setupOTA() {
   ArduinoOTA.setPassword((const char*)"123");
 
   ArduinoOTA.onStart([]() {
-    Serial.println("Start");
+    Serial.println("OTA Start");
   });
   ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
+    Serial.println("\n OTA End");
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
@@ -584,6 +621,7 @@ void setupOTA() {
 
 
 void setup() {
+  Serial.println( "setup" );
   // Initialize some variables
   uptime = 0;
   seconds = 0;
@@ -591,8 +629,6 @@ void setup() {
   byte mac[6];  // the MAC address of your Wifi shield
   WiFi.macAddress( mac );
   sprintf( msClientId, "%02x%02x%02x%02x%02x%02x", mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
-  
-
 
   setupSerial();
 
@@ -601,10 +637,10 @@ void setup() {
   setupWifi();
   setupNtp();
 
-  setupGrowatt();
   setupServer();
   setupMqtt();
 
+  setupGrowatt();
   setup485();
 
   leds[0] = CRGB::Black;
