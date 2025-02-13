@@ -26,9 +26,8 @@
 char msg[50];
 String mqttStat = "";
 String message = "";
-unsigned long lastTick, uptime, seconds, lastWifiCheck, lastRGB, last485, lastStatus, lastNtp;
+unsigned long lastTick, uptime, seconds, lastWifiCheck, last485, lastStatus, lastNtp;
 int setcounter = 0;
-bool ledoff = false;
 int holdingregisters = 0;
 char msClientId[20];
 char buildversion[20]="20250212";

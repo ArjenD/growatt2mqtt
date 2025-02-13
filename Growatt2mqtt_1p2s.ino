@@ -4,7 +4,6 @@
 // 1 Phase, 2 string inverter version such as MIN 3000 TL-XE, MIC 1500 TL-X
 
 // Libraries:
-// - FastLED by Daniel Garcia
 // - ModbusMaster by Doc Walker
 // - ArduinoOTA
 // - SoftwareSerial
@@ -14,8 +13,8 @@
 // - To power from mains: Hi-Link 5V power supply (https://www.aliexpress.com/item/1005001484531375.html), fuseholder and 1A fuse, and varistor
 
 
-#include <SoftwareSerial.h>    // Leave the main serial line (USB) for debugging and flashing
-#include <ModbusMaster.h>      // Modbus master library for ESP8266 by Doc Walker
+#include <SoftwareSerial.h>    // Leave the main serial line (USB) for debugging and flashing  ESP-v8.1.0
+#include <ModbusMaster.h>      // Modbus master library for ESP8266 by Doc Walker v2.0.1
 
 #if defined(ESP8266)
   #pragma message "ESP8266 stuff happening!"
@@ -29,16 +28,15 @@
   #error "This ain't a ESP8266 or ESP32, dumbo!"
 #endif
 
-#include <PubSubClient.h>      // MQTT support by Nick O'Leary
-#include <ArduinoOTA.h>   
-#include <FastLED.h>          // by Daniel Garcia
+#include <PubSubClient.h>      // MQTT support by Nick O'Leary v2.8
+#include <ArduinoOTA.h>        // v1.0.12
 
 #include "globals.h"
 #include "settings.h"
 
-#include <ArduinoJson.h>      // Benoit Blanchon
+#include <ArduinoJson.h>      // Benoit Blanchon v 7.0.0
 #include <WiFiUdp.h>
-#include <NTP.h>               //https://github.com/sstaub/NTP   by stefan staub
+#include <NTP.h>               //https://github.com/sstaub/NTP   by stefan staub  v1.7
 
 // Define NTP Client to get time
 WiFiUDP wifiUdp;
@@ -46,13 +44,16 @@ NTP ntp(wifiUdp);
 
 
 
-ESP8266WebServer server(80);
+#if defined(ESP8266)
+  ESP8266WebServer server(80);
+#else
+  WebServer server(80);
+#endif
 WiFiClient espClient;
 PubSubClient mqtt( mqtt_server, 1883, 0, espClient );
 // SoftwareSerial modbus(MAX485_RX, MAX485_TX, false, 256); //RX, TX
 SoftwareSerial modbus( MAX485_RX, MAX485_TX, false );  //RX, TX
 ModbusMaster growatt;
-CRGB leds[NUM_LEDS];
 
 JsonDocument inputRegisters;
 JsonDocument holdingRegisters;
@@ -103,8 +104,6 @@ void sendModbusError(uint8_t result) {
 }
 
 void ReadInputRegisters() {
-  leds[0] = CRGB::Yellow;
-  FastLED.show();
   uint8_t result;
 
   digitalWrite(STATUS_LED, 0);
@@ -113,11 +112,6 @@ void ReadInputRegisters() {
   last485 = millis();
 
   if (result == growatt.ku8MBSuccess) {
-
-    leds[0] = CRGB::Green;
-    FastLED.show();
-    lastRGB = millis();
-    ledoff = true;
 
     if (setcounter == 0) {
 
@@ -250,11 +244,6 @@ void ReadInputRegisters() {
     }
 
   } else {
-    leds[0] = CRGB::Red;
-    FastLED.show();
-    lastRGB = millis();
-    ledoff = true;
-
     Serial.print(F("Error: "));
     sendModbusError(result);
   }
@@ -263,8 +252,6 @@ void ReadInputRegisters() {
 
 void ReadHoldingRegisters() {
   
-  leds[0] = CRGB::Yellow;
-  FastLED.show();
   uint8_t result;
   
   digitalWrite(STATUS_LED, 0);
@@ -273,11 +260,6 @@ void ReadHoldingRegisters() {
 
   last485 = millis();
   if (result == growatt.ku8MBSuccess) {
-
-    leds[0] = CRGB::Green;
-    FastLED.show();
-    lastRGB = millis();
-    ledoff = true;
 
     if (setcounter == 0) {
       holdingRegisters["safetyfuncen"] = growatt.getResponseBuffer(1);         // Safety Function Enabled
@@ -356,11 +338,6 @@ void ReadHoldingRegisters() {
 
 
   } else {
-    leds[0] = CRGB::Red;
-    FastLED.show();
-    lastRGB = millis();
-    ledoff = true;
-
     Serial.print(F("Error: "));
     sendModbusError(result);
   }
@@ -374,9 +351,10 @@ void reconnectMqtt() {
   // Loop until we're reconnected
   while (!mqtt.connected()) {
     Serial.print("Attempting MQTT connection...");
-    
+    String mqttClient = "growatt-";
+    mqttClient += String(random(0xffff), HEX);
     // Attempt to connect
-    if (mqtt.connect( "growatt", mqtt_user, mqtt_password)) {
+    if (mqtt.connect( mqttClient.c_str() , mqtt_user, mqtt_password)) {
       Serial.println(F("connected"));
       // ... and resubscribe
       char topic[80];
@@ -400,14 +378,6 @@ void setupNtp() {
   ntp.ruleDST("CEST", Last, Sun, Mar, 2, 120); // last sunday in march 2:00, timetone +120min (+1 GMT + 1h summertime offset)
   ntp.ruleSTD("CET", Last, Sun, Oct, 3, 60); // last sunday in october 3:00, timezone +60min (+1 GMT)
   ntp.begin();
-}
-void setupFastLed() {
-  Serial.println( "setupFastLed" );
-  FastLED.addLeds<LED_TYPE, RGBLED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalSMD5050);
-  FastLED.setBrightness(BRIGHTNESS);
-  leds[0] = CRGB::Pink;
-  FastLED.show();
-  Serial.println("FastLed set up");
 }
 
 void setupSerial() {
@@ -529,10 +499,10 @@ void createDiscoveryTopic( String psSensor, String psUOM, String psDeviceClass, 
    else 
       doc[ "stat_cla"] = "measurement";
    
-  char val_tpl[100];
-  char stat_t[100];
-  char uniq_id[100];
-  char device_id[100];
+  char val_tpl[40];
+  char stat_t[40];
+  char uniq_id[40];
+  char device_id[40];
 
   sprintf( val_tpl, "{{ value_json.%s|default(0) }}", psSensor.c_str() );
   sprintf( stat_t, "growatt/%s/data", msClientId );
@@ -631,20 +601,13 @@ void setup() {
   sprintf( msClientId, "%02x%02x%02x%02x%02x%02x", mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
 
   setupSerial();
-
-  setupFastLed();
   setupOTA();
   setupWifi();
-  setupNtp();
-
-  setupServer();
   setupMqtt();
-
+  setupNtp();
+  setupServer();
   setupGrowatt();
   setup485();
-
-  leds[0] = CRGB::Black;
-  FastLED.show();
 
   ReadHoldingRegisters();
 }
@@ -717,11 +680,4 @@ void loop() {
     lastStatus = millis();
   }
 
-  if (ledoff && (millis() - lastRGB >= RGBSTATUSDELAY)) {
-    ledoff = false;
-    leds[0] = CRGB::Black;
-    FastLED.show();
-
-    lastRGB = millis();
-  }
 }
