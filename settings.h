@@ -2,7 +2,7 @@
 #define DEBUG_MQTT      1 
 
 #define MODBUS_RATE     9600      // Modbus speed of Growatt, do not change
-#define SERIAL_RATE     9600    // Serial speed for status info
+#define SERIAL_RATE     115200    // Serial speed for status info
 #define MAX485_DE       5         // D1, DE pin on the TTL to RS485 converter
 #define MAX485_RE_NEG   4         // D2, RE pin on the TTL to RS485 converter
 #define MAX485_RX       14        // D5, RO pin on the TTL to RS485 converter
@@ -32,6 +32,9 @@ const char* mqtt_user = "admin";             // MQTT userid
 const char* mqtt_password = "Zweosplein1";         // MQTT password
 const char* clientID = "growatt";                // MQTT client ID
 const char* topicRoot = "growatt";             // MQTT root topic for the device, keep / at the end
+
+// WiFi connect timeout per AP. Increase when connecting takes longer.
+const uint32_t connectTimeoutMs = 5000;
 
 
 // Comment the entire second below for dynamic IP (including the define)

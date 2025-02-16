@@ -18,8 +18,10 @@
 
 #if defined(ESP8266)
   #pragma message "ESP8266 stuff happening!"
-  #include <ESP8266WiFi.h>       // Wifi connection
+//  #include <ESP8266WiFi.h>       // Wifi connection
   #include <ESP8266WebServer.h>  // Web server for general HTTP Response
+  #include <ESP8266WiFiMulti.h>
+
 #elif defined(ESP32)
   #pragma message "ESP32 stuff happening!"
   #include <WiFi.h>       // Wifi connection
@@ -42,10 +44,10 @@
 WiFiUDP wifiUdp;
 NTP ntp(wifiUdp);
 
-
-
 #if defined(ESP8266)
   ESP8266WebServer server(80);
+  ESP8266WiFiMulti wifiMulti;
+
 #else
   WebServer server(80);
 #endif
@@ -57,6 +59,8 @@ ModbusMaster growatt;
 
 JsonDocument inputRegisters;
 JsonDocument holdingRegisters;
+
+boolean mbWifiConnected = false;
 
 String convertToString( char* a ) 
 {
@@ -346,11 +350,11 @@ void ReadHoldingRegisters() {
 
 // MQTT reconnect logic
 void reconnectMqtt() {
-  Serial.println( "reconnectMqtt" );
+  Serial.println( F("reconnectMqtt" ) );
   //String mytopic;
   // Loop until we're reconnected
-  while (!mqtt.connected()) {
-    Serial.print("Attempting MQTT connection...");
+  if (!mqtt.connected()) {
+    Serial.print( F("Attempting MQTT connection..." ));
     String mqttClient = "growatt-";
     mqttClient += String(random(0xffff), HEX);
     // Attempt to connect
@@ -368,13 +372,12 @@ void reconnectMqtt() {
       Serial.print(mqtt.state());
       Serial.println(F(" try again in 5 seconds"));
       // Wait 5 seconds before retrying
-      delay(5000);
     }
   }
 }
 
 void setupNtp() {
-  Serial.println( "setupNtp" );
+  Serial.println( F( "setupNtp" ) );
   ntp.ruleDST("CEST", Last, Sun, Mar, 2, 120); // last sunday in march 2:00, timetone +120min (+1 GMT + 1h summertime offset)
   ntp.ruleSTD("CET", Last, Sun, Oct, 3, 60); // last sunday in october 3:00, timezone +60min (+1 GMT)
   ntp.begin();
@@ -386,7 +389,7 @@ void setupSerial() {
 }
 
 void setup485() {
-  Serial.println( "setup485" );
+  Serial.println( F( "setup485" ) );
   // Init outputs, RS485 in receive mode
   pinMode(MAX485_RE_NEG, OUTPUT);
   pinMode(MAX485_DE, OUTPUT);
@@ -394,23 +397,29 @@ void setup485() {
   digitalWrite(MAX485_RE_NEG, 0);
   digitalWrite(MAX485_DE, 0);
   modbus.begin(MODBUS_RATE);
-  Serial.println("485 set up");
+  Serial.println( F( "485 set up" ));
 }
 
 void setupWifi() {
-  Serial.println( "setupWifi" );
+  Serial.println( F( "setupWifi" ) );
+
+  // Don't save WiFi configuration in flash - optional
+  WiFi.persistent(false);
+  // Set WiFi to station mode
+  WiFi.mode(WIFI_STA);
+
+// Register multi WiFi networks
+  wifiMulti.addAP("targetcnc.nl", "aaabbbccc");
+  wifiMulti.addAP("TargetCNC", "aaabbbccc");
+  wifiMulti.addAP("targetcnc.nl_EXT", "aaabbbccc");
+  
+  checkWifi();
+
+/*
   // Connect to Wifi
   Serial.print(F("Connecting to Wifi: " ) );
   Serial.println( ssid );
   WiFi.mode(WIFI_STA);
-
-#ifdef FIXEDIP
-  // Configures static IP address
-  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
-    Serial.println("STA Failed to configure");
-  }
-#endif
-
 
   int count = 0;
   WiFi.begin(ssid, password);
@@ -419,7 +428,7 @@ void setupWifi() {
     Serial.print(F("."));
     count++;
   }
-  Serial.println( "" );
+  Serial.println( F("") );
   Serial.print(F("Connecting to Wifi: " ) );
   Serial.println( ssid_backup );
 
@@ -437,8 +446,9 @@ void setupWifi() {
       }
     }
   }
+*/
 
-  Serial.println("");
+  Serial.println(F(""));
   Serial.println(F("Connected to wifi network"));
   Serial.print(F("IP address: "));
   Serial.println(WiFi.localIP());
@@ -447,17 +457,17 @@ void setupWifi() {
 }
 
 void setupGrowatt() {
-  Serial.println( "setupGrowatt" );
+  Serial.println( F("setupGrowatt") );
   // Set up the Modbus line
   growatt.begin(SLAVE_ID, modbus);
   // Callbacks allow us to configure the RS485 transceiver correctly
   growatt.preTransmission(preTransmission);
   growatt.postTransmission(postTransmission);
-  Serial.println("Growatt Modbus connection is set up");
+  Serial.println( F("Growatt Modbus connection is set up" ));
 }
 
 void setupServer() {
-  Serial.println( "setupServer" );
+  Serial.println( F( "setupServer" ) );
   server.on("/", []() {  // Dummy page
     server.send(200, "text/plain", "Growatt Solar Inverter to MQTT Gateway");
   });
@@ -466,7 +476,7 @@ void setupServer() {
 }
 
 void setupMqtt() {
-  Serial.println( "setupMqtt" );
+  Serial.println( F( "setupMqtt" ) );
   // Set up the MQTT server connection
   if (strcmp(mqtt_server, "") != 0) {
     mqtt.setServer(mqtt_server, 1883);
@@ -475,7 +485,7 @@ void setupMqtt() {
 
     reconnectMqtt();
 
-    Serial.println("Mqtt set up");
+    Serial.println( F( "Mqtt set up" ));
   }
 }
 
@@ -554,7 +564,7 @@ void setupDiscovery() {
 }
 
 void setupOTA() {
-  Serial.println( "setupOTA" );
+  Serial.println( F( "setupOTA" ) );
   // Port defaults to 8266
   // ArduinoOTA.setPort(8266);
 
@@ -569,29 +579,29 @@ void setupOTA() {
   ArduinoOTA.setPassword((const char*)"123");
 
   ArduinoOTA.onStart([]() {
-    Serial.println("OTA Start");
+    Serial.println( F( "OTA Start" ));
   });
   ArduinoOTA.onEnd([]() {
-    Serial.println("\n OTA End");
+    Serial.println( F("\n OTA End" ));
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
   });
   ArduinoOTA.onError([](ota_error_t error) {
     Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    if (error == OTA_AUTH_ERROR) Serial.println( F( "Auth Failed" ));
+    else if (error == OTA_BEGIN_ERROR) Serial.println( F( "Begin Failed" ));
+    else if (error == OTA_CONNECT_ERROR) Serial.println( F("Connect Failed" ) );
+    else if (error == OTA_RECEIVE_ERROR) Serial.println( F( "Receive Failed" ));
+    else if (error == OTA_END_ERROR) Serial.println( F( "End Failed" ));
   });
   ArduinoOTA.begin();
-  Serial.println("Arduino OTA set up");
+  Serial.println( F("Arduino OTA set up" ) );
 }
 
 
 void setup() {
-  Serial.println( "setup" );
+  Serial.println( F( "setup" ) );
   // Initialize some variables
   uptime = 0;
   seconds = 0;
@@ -624,8 +634,32 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.println(message);
 }
 
+void checkWifi()
+{
+  // Maintain WiFi connection
+  if (wifiMulti.run(connectTimeoutMs) == WL_CONNECTED) {
+    if (!mbWifiConnected)
+    {
+      mbWifiConnected = true;
+      Serial.print("WiFi connected: ");
+      Serial.print(WiFi.SSID());
+      Serial.print(" ");
+      Serial.println(WiFi.localIP());
+    }
+  } else {
+    mbWifiConnected = false;
+    Serial.println("WiFi not connected!");
+  }
+
+}
+
 void loop() {
 
+  if (millis() - lastWifiCheck >= WIFICHECK) 
+  {
+    checkWifi();
+    lastWifiCheck = millis();
+  }
   ntp.update();
 
   // Handle HTTP server requests
@@ -646,15 +680,16 @@ void loop() {
     uptime++;
   }
 
+/*
   if (millis() - lastWifiCheck >= WIFICHECK) {
     // reconnect to the wifi network if connection is lost
     if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("Reconnecting to wifi...");
+      Serial.println( F("Reconnecting to wifi..." ));
       WiFi.reconnect();
     }
     lastWifiCheck = millis();
   }
-
+*/
 
   if (millis() - last485 > READ_GROWATT_DELAY) {
     if (holdingregisters < 60)
